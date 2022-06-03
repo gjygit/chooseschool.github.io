@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+		<title>人数指南</title>
+		<link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+		<script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
+		<script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+		<link href="css/materialdesignicons.min.css" rel="stylesheet">
+		<link href="css/style.css" rel="stylesheet">
+		<script src="http://demo.haoji.me/2017/02/08-js-xlsx/js/xlsx.core.min.js"></script>
+		<script src="https://cdn.staticfile.org/echarts/4.3.0/echarts.min.js"></script>
+		<style>
+			table {
+				border: 1px solid #ccc;
+				border-collapse: collapse;
+				width: 100%;
+			}
+
+			table td {
+				border: 1px solid #ccc;
+				text-align: center;
+				height: 30px;
+			}
+
+			table tr:first-child {
+				background: #ccc;
+			}
+		</style>
+		<script>
+			$(function() {
+
+				for (var i = 0; i < files.length; i++) {
+					console.log(files[i])
+					insertSchool(i, files[i])
+					readWorkbookFromRemoteFile(i, 'http://127.0.0.1:8848/cxm/excel/' + files[i] + '.xlsx', function(
+						pos, workbook) {
+						setTimeout(function() {
+							readWorkbook(pos, workbook);
+						}, 100);
+
+					});
+				}
+			});
+			let files = [
+				'2022常州大学',
+				'2022江苏大学',
+				'2022江苏师范大学',
+				'2022江南大学',
+				'2022江苏科技大学',
+				'2022南京工业大学',
+				'2022南京林业大学',
+				'2022南京信息工程大学'
+			]
+
+			function insertSchool(i, name) {
+				var schoolbox = document.getElementById('schoolbox')
+				var item = '<div class="panel panel-cyan">' +
+					'<div class="panel-heading" role="tab" id="heading' + i + '">' +
+					'<h4 class="panel-title">' +
+					'<a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion"' +
+					'href="#collapse' + i + '" aria-expanded="false" aria-controls="collapseTwo">' +
+					name +
+					'</a>' +
+					'</h4>' +
+					'</div>' +
+					'<div id="collapse' + i + '" class="panel-collapse collapse" role="tabpanel" aria-labelledby="heading' + i +
+					'">' +
+					'<div class="panel-body">' +
+					'<div class="table' + i + '" style="max-height:300px;overflow: auto;"></div>' +
+					'</div>' +
+					'</div>' +
+					'</div>'
+				schoolbox.innerHTML += item
+				var div = '<div style="display:flex;flex-direction: row;flex-wrap:wrap">'
+				var echartspie = '<div id="pie' + i + '" style="min-width:390px;width: 50%;height:300px;"></div>'
+				var echartszhu = '<div id="zhu' + i + '" style="min-width:390px;width: 50%;height:300px;"></div>'
+				div += echartszhu
+				div += echartspie
+				div += '</div>'
+				schoolbox.innerHTML += div
+			}
+
+			// 转成cvs 要注意Execel表格内容不能包含英文的,不然解析出来的数据格式会有问题
+			function readWorkbook(i, workbook) {
+				var sheetNames = workbook.SheetNames; // 工作表名称集合
+				var worksheet = workbook.Sheets[sheetNames[0]]; // 这里我们只读取第一张sheet
+				var csv = XLSX.utils.sheet_to_csv(worksheet);
+				// console.log(csv);
+				var rows = csv.split('\n'); // 转化为数组
+				rows.pop(); // 最后一行没用的
+				// console.log(rows); // 打印输出的数组
+				let charttitles = ['180以下', '180-195', '195-210', '210-217', '217-225', '225及以上']
+				let chartvalue = [0, 0, 0, 0, 0, 0]
+				let table = ``;
+				for (let i in rows) {
+					let v = rows[i]
+					let tr = ``;
+					let td = ``;
+					for (let j in v.split(',')) {
+						let item = v.split(',')[j]
+						td += `<td>${item}</td>`
+
+						if (item == '全日制') {
+							let score = v.split(',')[4]
+							if (score < 180) {
+								chartvalue[0]++
+							}
+							if (score >= 180 && score < 195) {
+								chartvalue[1]++
+							}
+							if (score >= 195 && score < 210) {
+								chartvalue[2]++
+							}
+							if (score >= 210 && score < 217) {
+								chartvalue[3]++
+							}
+							if (score >= 217 && score < 225) {
+								chartvalue[4]++
+							}
+							if (score >= 225) {
+								chartvalue[5]++
+							}
+						}
+					}
+					tr = `<tr>${td}</tr>`;
+					table += tr;
+				}
+				table = `<table style="min-width:600px">${table}</table>`;
+				initZhu(i, files[i], charttitles, chartvalue)
+				initPie(i, files[i], charttitles, chartvalue)
+				document.querySelector(".table" + i).innerHTML = table; // 显示table表格
+			}
+			// 从网络上读取某个excel文件，url必须同域，否则报错
+			function readWorkbookFromRemoteFile(i, url, callback) {
+				var xhr = new XMLHttpRequest();
+				xhr.open('get', url, true);
+				xhr.responseType = 'arraybuffer';
+				xhr.onload = function(e) {
+					if (xhr.status == 200) {
+						var data = new Uint8Array(xhr.response)
+						var workbook = XLSX.read(data, {
+							type: 'array'
+						});
+						if (callback)
+							callback(i, workbook);
+					}
+				};
+				xhr.send();
+			}
+
+			function initPie(i, title, charttitles, chartvalue) {
+				var data = []
+				for (var j = 0; j < charttitles.length; j++) {
+					var item = {}
+					item.value = chartvalue[j]
+					item.name = charttitles[j]
+					data.push(item)
+				}
+				var chartDom = document.getElementById('pie' + i);
+				var myChart = echarts.init(chartDom);
+				var option;
+				option = {
+					tooltip: {
+						trigger: 'item'
+					},
+					legend: {
+						top: '5%',
+						left: 'center'
+					},
+					series: [{
+						name: '人数分布',
+						type: 'pie',
+						radius: ['40%', '70%'],
+						avoidLabelOverlap: false,
+						label: {
+							show: false,
+							position: 'center'
+						},
+						emphasis: {
+							label: {
+								show: true,
+								fontSize: '15',
+								fontWeight: 'bold'
+							}
+						},
+						labelLine: {
+							show: false
+						},
+						data: data
+					}]
+				};
+				option && myChart.setOption(option);
+			}
+
+			function initZhu(i, title, charttitles, chartvalue) {
+				var chartDom = document.getElementById('zhu' + i);
+				var myChart = echarts.init(chartDom);
+				var option;
+
+				option = {
+					title: {
+						text: title + '（仅全日制）',
+						// subtext:'',
+						x: 'center',
+						y: '7px',
+						textStyle: {
+							color: '#275490',
+							fontSize: 16
+						},
+						textAlign: 'left'
+					},
+					xAxis: {
+						type: 'category',
+						data: charttitles
+					},
+					yAxis: {
+						type: 'value'
+					},
+					series: [{
+						data: chartvalue,
+						type: 'bar',
+						label: {
+							show: true,
+							position: 'top'
+						}
+					}]
+				};
+
+				option && myChart.setOption(option);
+
+			}
+		</script>
+
+	</head>
+	<body>
+		<!--手风琴效果-->
+		<div class="panel-group" style="padding: 10px 10px 10px 10px;" id="schoolbox" role="tablist"
+			aria-multiselectable="true">
+
+		</div>
+		<!--手风琴效果 End-->
+	</body>
+</html>
