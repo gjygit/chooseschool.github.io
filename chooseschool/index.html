@@ -34,7 +34,7 @@
 				for (var i = 0; i < files.length; i++) {
 					console.log(files[i])
 					insertSchool(i, files[i])
-					readWorkbookFromRemoteFile(i, 'http://127.0.0.1:8848/cxm/excel/' + files[i] + '.xlsx', function(
+					readWorkbookFromRemoteFile(i, 'https://gjygit.github.io/chooseschool.github.io/chooseschool/excel/' + files[i] + '.xlsx', function(
 						pos, workbook) {
 						setTimeout(function() {
 							readWorkbook(pos, workbook);
